@@ -1,0 +1,23 @@
+{
+    "name": "rennf93/laravel-guard-example-simple",
+    "description": "Minimal guarded app demonstrating rennf93/laravel-guard",
+    "type": "project",
+    "license": "MIT",
+    "require": {
+        "php": "^8.2",
+        "rennf93/laravel-guard": "dev-master",
+        "rennf93/guard-core-php": "^0.1.0",
+        "illuminate/http": "^12.0"
+    },
+    "repositories": [
+        { "type": "vcs", "url": "https://github.com/rennf93/guard-core-php" },
+        { "type": "vcs", "url": "https://github.com/rennf93/laravel-guard" }
+    ],
+    "minimum-stability": "dev",
+    "prefer-stable": true,
+    "config": {
+        "platform": {
+            "php": "8.3.0"
+        }
+    }
+}

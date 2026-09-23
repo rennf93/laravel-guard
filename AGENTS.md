@@ -8,7 +8,8 @@ rennf93/laravel-guard (https://github.com/rennf93/laravel-guard) is a Laravel mi
 - Composer package `rennf93/laravel-guard`, type `library`, license MIT. No `version` field in composer.json (the psr15-guard convention); versions come from git tags, of which there are none, so composer installs it as `dev-main`.
 - This repository contains NO security logic. Detection, rate limiting, bans, and verdicts all live in guard-core-php.
 - PHP `^8.2`. Autoload is PSR-4: `RenzoFranceschini\GuardCoreLaravel\` maps to `src/`.
-- Shipped tags: none. There are no git tags and no releases. `main` is protected: never push to it, never merge into it, never create tags or releases.
+- Shipped tags: none. There are no git tags and no releases.
+- Docs site: MkDocs Material in `docs/` (strict build in CI, gh-deploy on push to `master` touching docs sources). Runnable demos in `examples/` are exercised by the live-smoke workflow. `master` is protected: never push to it, never merge into it, never create tags or releases.
 
 ## Ecosystem Position
 
@@ -73,6 +74,9 @@ Composer scripts (composer.json `scripts`; these are the only two):
 | --- | --- |
 | `composer test` | `php bin/test_laravel.php` |
 | `composer lint` | `for f in $(find src bin -name '*.php'); do php -l "$f" > /dev/null || exit 1; done && echo LINT_OK` |
+| `mkdocs build --strict` | Build the docs site (run with `docker run --rm -v "$PWD":/work -w /work python:3.12-slim sh -c "pip install -q mkdocs-material && mkdocs build --strict"`; the `site/` output is gitignored) |
+| `docker compose -f examples/simple_app/docker-compose.yml up --build -d --wait` | Bring up the simple example app plus Redis; then run the curl assertions from `.github/workflows/live-smoke.yml` |
+| `docker compose -f examples/advanced_app/docker-compose.yml up --build -d --wait` | Same for the advanced example (assertions in `examples/advanced_app/README.md`) |
 
 Direct commands used by CI (verified in `.github/workflows/ci.yml`; the same install, lint, and test steps appear in `release.yml` and `scheduled-lint.yml`):
 
@@ -88,12 +92,30 @@ Direct commands used by CI (verified in `.github/workflows/ci.yml`; the same ins
 
 ```
 .github/dependabot.yml                Weekly dependabot: github-actions + composer (grouped)
+.github/labels.yml                    Label registry for sync-labels
+.github/labeler.yml                   PR area-label rules for labeler
 .github/workflows/ci.yml              CI: test matrix php 8.2/8.3/8.4 + redis service + composer audit
 .github/workflows/release.yml         Release Gate: same suite, runs on v* tags
 .github/workflows/scheduled-lint.yml  Weekly cron (Mon 04:00 UTC): php -l sweep + composer audit
+.github/workflows/issue-link.yml      PR must close an open issue or carry no-issue
+.github/workflows/summary.yml         AI issue summary on the needs-summary label
+.github/workflows/sync-labels.yml     Applies .github/labels.yml on push/dispatch
+.github/workflows/greetings.yml       First-issue / first-PR welcome messages
+.github/workflows/labeler.yml         Area labels from .github/labeler.yml
+.github/workflows/stale.yml           Daily stale sweep with reminders
+.github/workflows/live-smoke.yml      Dockerized compose smoke over examples/simple_app
+.github/workflows/docs.yml            mkdocs strict build + gh-deploy on master docs changes
+.github/workflows/container-release.yml  Publishes examples/advanced_app image to ghcr.io
+.github/workflows/upstream-drift.yml  Daily suite run against guard-core-php@master
 bin/test_laravel.php                  Entire test suite, plain PHP runner with a T assertion harness
 composer.json                         Package metadata, autoload, scripts, repositories, platform pin
 composer.lock                         Locked deps; tracked; regenerate only deliberately
+docs/index.md                         Docs home: what the adapter is, install, quick start
+docs/usage.md                         Middleware contract, registration, verdicts, admin-gate equivalent
+docs/configuration.md                 SecurityConfig surface pointers, Redis, body bound
+examples/simple_app/                  Minimal guarded app (compose app + redis), live-smoke target
+examples/advanced_app/                Production-shaped app (env config, admin ban manager routes)
+mkdocs.yml                            MkDocs Material site definition
 src/GuardMiddleware.php               Laravel middleware
 src/LaravelGuardRequest.php           Illuminate Request to GuardRequest adapter
 src/ResponseTranslator.php            GuardResponse to Illuminate Response translator
@@ -117,7 +139,10 @@ AGENTS.md / CLAUDE.md                 Agent guide (byte-identical copies)
 - `config.platform.php: 8.2.0` in composer.json (see Ecosystem Position for why).
 - No require-dev packages: the test suite needs nothing beyond the runtime deps (no nyholm, no orchestra/testbench; Laravel requests are built with `Illuminate\Http\Request::create`).
 - CI runs a `redis:7-alpine` service container on port 6379 with health checks for the Redis integration tests.
-- Actions are pinned by commit SHA: `actions/checkout` v7.0.1 and `shivammathur/setup-php` 2.37.2.
+- Actions are pinned by commit SHA: `actions/checkout` v7.0.1, `shivammathur/setup-php` 2.37.2, `actions/ai-inference` v3, `crazy-max/ghaction-github-labeler` v6.0.0, `actions/first-interaction` v3.1.0, `actions/labeler` v7.0.0, `actions/stale` v11.0.0, `docker/login-action` v4.6.0, `docker/setup-compose-action` v2.4.0.
+- Examples run on `php:8.3-cli-alpine` (PHP built-in webserver, non-root in the advanced app) with composer builds from `composer:2`; Redis is `redis:7-alpine`.
+- Docs site: mkdocs-material, strict build, deployed to GitHub Pages by `docs.yml` on `master` pushes touching `docs/**`, `mkdocs.yml`, `README.md`, or `src/**`.
+- The examples are demo code, not package surface: they live under `examples/`, carry their own composer.json (no committed lock file), and must never be autoloaded by the library.
 
 ## Testing Guidelines
 
@@ -139,7 +164,7 @@ AGENTS.md / CLAUDE.md                 Agent guide (byte-identical copies)
 
 ## Best Practices
 
-- `main` is protected. Work on a branch, push, open a PR (draft PRs are fine). Never push to `main`, never tag, never publish a release as part of agent work.
+- `master` is protected. Work on a branch, push, open a PR (draft PRs are fine). Never push to `master`, never tag, never publish a release as part of agent work.
 - Never `git add vendor/`, `.DS_Store`, or any stray file. Stage explicit paths only.
 - Keep the adapter thin. If a change adds detection, verdict logic, or response shaping beyond translation, it belongs in guard-core-php, not here.
 - Configuration is constructor options: consumers build the `SecurityConfig` and `GuardEngine` themselves (typically in a service provider binding). Do not add a publishable config file or a config-array-to-SecurityConfig mapper; that is a parallel config surface.
