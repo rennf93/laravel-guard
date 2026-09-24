@@ -6,7 +6,7 @@
     "require": {
         "php": "^8.2",
         "rennf93/laravel-guard": "dev-master",
-        "rennf93/guard-core-php": "^0.1.0",
+        "rennf93/guard-core-php": "^4.0.4",
         "illuminate/http": "^12.0"
     },
     "autoload": {
